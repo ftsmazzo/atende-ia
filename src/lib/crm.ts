@@ -25,12 +25,13 @@ export function isBadName(value?: string | null) {
 }
 
 export function parseMemoryMessage(raw: unknown): HistoriaMsg | null {
-  let value = raw;
+  let value: unknown = raw;
   if (typeof value === "string") {
+    const asText = value;
     try {
-      value = JSON.parse(value);
+      value = JSON.parse(asText);
     } catch {
-      return { role: "other", text: value };
+      return { role: "other", text: asText };
     }
   }
   if (!value || typeof value !== "object") return null;
