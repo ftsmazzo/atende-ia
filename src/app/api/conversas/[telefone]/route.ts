@@ -9,7 +9,7 @@ export async function GET(_request: Request, { params }: Params) {
   const user = await requireUser();
   if (isResponse(user)) return user;
   const { telefone } = await params;
-  const { contacts, actions, attendances, messages, contactPhone } = tables;
+  const { contacts, attendances, messages, contactPhone } = tables;
 
   const [contato] = await query(
     `SELECT * FROM ${contacts} WHERE ${contactPhone} = $1`,
@@ -42,13 +42,9 @@ export async function GET(_request: Request, { params }: Params) {
       [telefone],
     );
   }
-  const acoes = await query(
-    `SELECT * FROM ${actions} WHERE ${tables.actionPhone} = $1 ORDER BY 1 DESC LIMIT 20`,
-    [telefone],
-  );
   const operadores = await query(
     `SELECT id, nome, papel FROM usuarios_painel WHERE ativo = TRUE ORDER BY nome`,
   );
 
-  return NextResponse.json({ contato, atendimento, mensagens, acoes, operadores });
+  return NextResponse.json({ contato, atendimento, mensagens, operadores });
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
@@ -13,22 +13,61 @@ type Conversa = {
   preview: string;
 };
 
+type Mensagem = {
+  id: number;
+  direcao: string;
+  texto: string;
+  created_at: string;
+  id_mensagem_wa?: string | null;
+  reacao?: string | null;
+};
+
 type Detalhe = {
   contato: Record<string, unknown> | null;
   atendimento: { modo: string; operador_id: number | null; operador: string | null } | null;
-  mensagens: {
-    id: number;
-    direcao: string;
-    texto: string;
-    created_at: string;
-    id_mensagem_wa?: string | null;
-    reacao?: string | null;
-  }[];
-  acoes: { id: number; cod_imovel: string; status: string | null; observacoes: string | null }[];
+  mensagens: Mensagem[];
   operadores: { id: number; nome: string; papel: string }[];
 };
 
 const REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏", "👏", "👋"];
+const POLL_MS = 3000;
+
+function formatMsgTime(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const now = new Date();
+  const sameDay = date.toDateString() === now.toDateString();
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: sameDay ? undefined : "2-digit",
+    month: sameDay ? undefined : "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function emptyCrm() {
+  return {
+    nome_cliente: "",
+    perfil_cliente: "",
+    preferencia_local: "",
+    compra_comalguem: "",
+    tipo_renda: "",
+    renda_bruta: "",
+  };
+}
+
+function crmFromContato(contato: Record<string, unknown> | null | undefined) {
+  const c = contato ?? {};
+  return {
+    nome_cliente: String(c.nome_cliente ?? ""),
+    perfil_cliente: String(c.perfil_cliente ?? ""),
+    preferencia_local: String(c.preferencia_local ?? ""),
+    compra_comalguem: String(c.compra_comalguem ?? ""),
+    tipo_renda: String(c.tipo_renda ?? ""),
+    renda_bruta: c.renda_bruta == null || c.renda_bruta === "" ? "" : String(c.renda_bruta),
+  };
+}
 
 function AtendimentoInner() {
   const search = useSearchParams();
@@ -41,46 +80,83 @@ function AtendimentoInner() {
   const [texto, setTexto] = useState("");
   const [operadorId, setOperadorId] = useState("");
   const [erro, setErro] = useState("");
-  const [crm, setCrm] = useState({
-    nome_cliente: "",
-    perfil_cliente: "",
-    preferencia_local: "",
-    compra_comalguem: "",
-    tipo_renda: "",
-    renda_bruta: "",
-  });
+  const [crm, setCrm] = useState(emptyCrm);
   const typingRef = useRef<number | null>(null);
+  const dirtyCrm = useRef(false);
+  const chatRef = useRef<HTMLDivElement | null>(null);
+  const nearBottom = useRef(true);
+  const telRef = useRef(tel);
+  const filtroRef = useRef(filtro);
+  const qRef = useRef(q);
 
-  async function loadLista() {
-    const params = new URLSearchParams({ filtro, q });
-    const r = await fetch(`/api/conversas?${params}`);
+  telRef.current = tel;
+  filtroRef.current = filtro;
+  qRef.current = q;
+
+  const loadLista = useCallback(async () => {
+    const params = new URLSearchParams({ filtro: filtroRef.current, q: qRef.current });
+    const r = await fetch(`/api/conversas?${params}`, { cache: "no-store" });
     const data = await r.json();
     setLista(data.conversas ?? []);
-  }
+  }, []);
 
-  async function loadDetalhe(telefone: string) {
-    const r = await fetch(`/api/conversas/${telefone}`);
-    const data = await r.json();
-    setDetalhe(data);
-    const c = data.contato ?? {};
-    setCrm({
-      nome_cliente: String(c.nome_cliente ?? ""),
-      perfil_cliente: String(c.perfil_cliente ?? ""),
-      preferencia_local: String(c.preferencia_local ?? ""),
-      compra_comalguem: String(c.compra_comalguem ?? ""),
-      tipo_renda: String(c.tipo_renda ?? ""),
-      renda_bruta: c.renda_bruta == null ? "" : String(c.renda_bruta),
+  const loadDetalhe = useCallback(async (telefone: string, opts?: { syncCrm?: boolean }) => {
+    const r = await fetch(`/api/conversas/${telefone}`, { cache: "no-store" });
+    const data = (await r.json()) as Detalhe;
+    setDetalhe((prev) => {
+      const prevLast = prev?.mensagens.at(-1)?.id;
+      const nextLast = data.mensagens?.at(-1)?.id;
+      if (prevLast !== nextLast && nearBottom.current) {
+        queueMicrotask(() => {
+          const el = chatRef.current;
+          if (el) el.scrollTop = el.scrollHeight;
+        });
+      }
+      return data;
     });
-  }
+    if (opts?.syncCrm !== false && !dirtyCrm.current) {
+      setCrm(crmFromContato(data.contato));
+    }
+  }, []);
 
   useEffect(() => {
     loadLista().catch(() => setErro("Falha ao listar conversas"));
-  }, [filtro, q]);
+  }, [filtro, q, loadLista]);
 
   useEffect(() => {
-    if (!tel) return;
-    loadDetalhe(tel).catch(() => setErro("Falha ao abrir conversa"));
-  }, [tel]);
+    dirtyCrm.current = false;
+    if (!tel) {
+      setDetalhe(null);
+      setCrm(emptyCrm());
+      return;
+    }
+    loadDetalhe(tel, { syncCrm: true }).catch(() => setErro("Falha ao abrir conversa"));
+  }, [tel, loadDetalhe]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function tick() {
+      if (document.visibilityState !== "visible") return;
+      try {
+        await loadLista();
+        if (!cancelled && telRef.current) {
+          await loadDetalhe(telRef.current, { syncCrm: false });
+        }
+      } catch {
+        /* próximo ciclo tenta de novo */
+      }
+    }
+    const id = window.setInterval(tick, POLL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void tick();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [loadLista, loadDetalhe]);
 
   const modo = detalhe?.atendimento?.modo ?? "ia";
 
@@ -96,7 +172,7 @@ function AtendimentoInner() {
       setErro(data.error ?? "Erro na ação");
       return;
     }
-    await Promise.all([loadDetalhe(tel), loadLista()]);
+    await Promise.all([loadDetalhe(tel, { syncCrm: false }), loadLista()]);
   }
 
   async function enviar() {
@@ -133,7 +209,8 @@ function AtendimentoInner() {
       setErro(data.error ?? "Falha ao salvar CRM");
       return;
     }
-    await loadDetalhe(tel);
+    dirtyCrm.current = false;
+    await loadDetalhe(tel, { syncCrm: true });
   }
 
   async function varrerCrm() {
@@ -144,7 +221,8 @@ function AtendimentoInner() {
       setErro(data.error ?? "Falha ao varrer histórico");
       return;
     }
-    await Promise.all([loadDetalhe(tel), loadLista()]);
+    dirtyCrm.current = false;
+    await Promise.all([loadDetalhe(tel, { syncCrm: true }), loadLista()]);
   }
 
   const titulo = useMemo(() => {
@@ -188,9 +266,12 @@ function AtendimentoInner() {
               >
                 <div className="flex items-center justify-between gap-2">
                   <strong className="text-sm">{item.nome_cliente || item.telefone}</strong>
-                  <span className="text-[10px] uppercase text-muted">{item.modo}</span>
+                  <span className="text-[10px] text-muted">{formatMsgTime(item.ultima)}</span>
                 </div>
-                <p className="mt-1 truncate text-xs text-muted">{item.preview}</p>
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  <p className="truncate text-xs text-muted">{item.preview}</p>
+                  <span className="shrink-0 text-[10px] uppercase text-muted">{item.modo}</span>
+                </div>
               </button>
             </li>
           ))}
@@ -214,11 +295,18 @@ function AtendimentoInner() {
             </div>
           ) : null}
         </header>
-        <div className="flex-1 space-y-2 overflow-y-auto p-4">
+        <div
+          ref={chatRef}
+          className="flex-1 space-y-2 overflow-y-auto p-4"
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+          }}
+        >
           {detalhe?.mensagens.map((msg) => (
             <div
               key={msg.id}
-              className={`group max-w-[80%] rounded-2xl px-3 py-2 text-sm ${
+              className={`group relative max-w-[80%] rounded-2xl px-3 pb-5 pt-2 text-sm ${
                 msg.direcao === "inbound"
                   ? "bg-bg"
                   : msg.direcao === "outbound_ia"
@@ -247,6 +335,13 @@ function AtendimentoInner() {
                   </div>
                 ) : null}
               </div>
+              <span
+                className={`absolute bottom-1.5 right-2 text-[10px] tabular-nums ${
+                  msg.direcao === "outbound_humano" ? "text-white/70" : "text-muted"
+                }`}
+              >
+                {formatMsgTime(msg.created_at)}
+              </span>
             </div>
           ))}
         </div>
@@ -308,7 +403,10 @@ function AtendimentoInner() {
                 className="mt-1 w-full rounded-lg border border-line px-2 py-1.5"
                 value={crm[key as keyof typeof crm]}
                 disabled={!tel}
-                onChange={(e) => setCrm((prev) => ({ ...prev, [key]: e.target.value }))}
+                onChange={(e) => {
+                  dirtyCrm.current = true;
+                  setCrm((prev) => ({ ...prev, [key]: e.target.value }));
+                }}
               />
             </label>
           ))}
@@ -329,15 +427,6 @@ function AtendimentoInner() {
             </button>
           </div>
         </div>
-        <h2 className="mt-6 text-sm font-medium">Ações</h2>
-        <ul className="mt-2 space-y-2 text-sm">
-          {(detalhe?.acoes ?? []).map((acao) => (
-            <li key={acao.id} className="rounded-lg bg-bg px-2 py-2">
-              <strong>{acao.cod_imovel}</strong>
-              <p className="text-muted">{acao.status || "sem status"}</p>
-            </li>
-          ))}
-        </ul>
       </aside>
     </div>
   );
