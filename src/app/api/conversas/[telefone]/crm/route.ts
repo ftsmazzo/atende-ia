@@ -59,6 +59,28 @@ export async function POST(_request: Request, { params }: Params) {
   const { telefone } = await params;
   const { contacts, contactPhone, messages, history } = tables;
 
+  await query(
+    `DELETE FROM ${messages}
+     WHERE telefone = $1
+       AND id_mensagem_wa IS NULL
+       AND direcao = 'inbound'`,
+    [telefone],
+  );
+  await query(
+    `DELETE FROM ${messages} m
+     WHERE m.telefone = $1
+       AND m.id_mensagem_wa IS NULL
+       AND m.direcao = 'outbound_ia'
+       AND (
+         SELECT COUNT(*) FROM ${messages} x
+         WHERE x.telefone = m.telefone
+           AND x.id_mensagem_wa IS NULL
+           AND x.direcao = 'outbound_ia'
+           AND date_trunc('minute', x.created_at) = date_trunc('minute', m.created_at)
+       ) >= 4`,
+    [telefone],
+  );
+
   const painelMsgs = await query<{ direcao: string; texto: string }>(
     `SELECT direcao, texto FROM ${messages} WHERE telefone = $1 ORDER BY id ASC`,
     [telefone],
@@ -75,20 +97,6 @@ export async function POST(_request: Request, { params }: Params) {
       .filter((item): item is NonNullable<typeof item> => Boolean(item));
   } catch {
     historico = [];
-  }
-
-  for (const item of historico) {
-    const direcao = item.role === "ai" ? "outbound_ia" : item.role === "human" ? "inbound" : null;
-    if (!direcao) continue;
-    await query(
-      `INSERT INTO ${messages} (telefone, direcao, texto, instancia)
-       SELECT $1, $2, $3, $4
-       WHERE NOT EXISTS (
-         SELECT 1 FROM ${messages}
-         WHERE telefone = $1 AND direcao = $2 AND texto = $3
-       )`,
-      [telefone, direcao, item.text.slice(0, 8000), process.env.EVOLUTION_INSTANCE ?? null],
-    );
   }
 
   const [contato] = await query<Record<string, unknown>>(
@@ -118,7 +126,7 @@ export async function POST(_request: Request, { params }: Params) {
     extracted,
   );
   await upsertContato(merged);
-  return NextResponse.json({ ok: true, contato: merged, importadas: historico.length });
+  return NextResponse.json({ ok: true, contato: merged });
 }
 
 type HistoriaSafe = NonNullable<ReturnType<typeof parseMemoryMessage>>;

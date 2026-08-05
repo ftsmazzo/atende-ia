@@ -423,7 +423,7 @@ function AtendimentoInner() {
               disabled={!tel}
               onClick={varrerCrm}
             >
-              Varrer histórico
+              Atualizar CRM
             </button>
           </div>
         </div>

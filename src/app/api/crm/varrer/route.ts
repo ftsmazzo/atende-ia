@@ -42,19 +42,6 @@ export async function POST() {
         .map((row) => parseMemoryMessage(row.message ?? row.mensagem))
         .filter((item): item is NonNullable<typeof item> => Boolean(item));
       if (parsed.length) historico = parsed;
-      for (const item of parsed) {
-        const direcao = item.role === "ai" ? "outbound_ia" : item.role === "human" ? "inbound" : null;
-        if (!direcao) continue;
-        await query(
-          `INSERT INTO ${messages} (telefone, direcao, texto, instancia)
-           SELECT $1, $2, $3, $4
-           WHERE NOT EXISTS (
-             SELECT 1 FROM ${messages}
-             WHERE telefone = $1 AND direcao = $2 AND texto = $3
-           )`,
-          [telefone, direcao, item.text.slice(0, 8000), process.env.EVOLUTION_INSTANCE ?? null],
-        );
-      }
     } catch {
       /* histórico opcional */
     }
