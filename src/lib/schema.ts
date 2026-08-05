@@ -17,6 +17,7 @@ export const tables = {
   actions: ident(process.env.ACTIONS_TABLE, "lead_acoes"),
   attendances: ident(process.env.ATTENDANCES_TABLE, "atendimentos_agente"),
   messages: ident(process.env.MESSAGES_TABLE, "mensagens_agente"),
+  history: ident(process.env.HISTORY_TABLE, "pazotti_historico"),
   users: "usuarios_painel",
   contactPhone: ident(process.env.CONTACT_PHONE_COLUMN, "telefone"),
   contactName: ident(process.env.CONTACT_NAME_COLUMN, "nome"),

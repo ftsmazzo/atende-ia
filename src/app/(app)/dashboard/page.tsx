@@ -19,6 +19,8 @@ type Dash = {
 export default function DashboardPage() {
   const [data, setData] = useState<Dash | null>(null);
   const [erro, setErro] = useState("");
+  const [varrendo, setVarrendo] = useState(false);
+  const [varredura, setVarredura] = useState("");
 
   useEffect(() => {
     fetch("/api/dashboard")
@@ -44,9 +46,32 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Tomada de decisão</h1>
-        <p className="text-sm text-muted">Leads, ações e pulso do atendimento WhatsApp.</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Tomada de decisão</h1>
+          <p className="text-sm text-muted">Leads, ações e pulso do atendimento WhatsApp.</p>
+        </div>
+        <div className="text-right">
+          <button
+            disabled={varrendo}
+            className="rounded-lg border border-line bg-card px-3 py-2 text-sm disabled:opacity-50"
+            onClick={async () => {
+              setVarrendo(true);
+              setVarredura("");
+              const r = await fetch("/api/crm/varrer", { method: "POST" });
+              const json = await r.json();
+              setVarrendo(false);
+              if (!r.ok) {
+                setVarredura(json.error ?? "Falha na varredura");
+                return;
+              }
+              setVarredura(`${json.atualizados} conversas varridas do histórico`);
+            }}
+          >
+            {varrendo ? "Varrendo CRM..." : "Varrer CRM do banco"}
+          </button>
+          {varredura ? <p className="mt-1 text-xs text-muted">{varredura}</p> : null}
+        </div>
       </div>
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map(([title, value, hint]) => (

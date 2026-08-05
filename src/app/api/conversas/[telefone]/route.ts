@@ -22,14 +22,26 @@ export async function GET(_request: Request, { params }: Params) {
      WHERE a.telefone = $1`,
     [telefone],
   );
-  const mensagens = await query(
-    `SELECT id, direcao, texto, operador_id, created_at
-     FROM ${messages}
-     WHERE telefone = $1
-     ORDER BY created_at ASC, id ASC
-     LIMIT 400`,
-    [telefone],
-  );
+  let mensagens: Record<string, unknown>[] = [];
+  try {
+    mensagens = await query(
+      `SELECT id, direcao, texto, operador_id, created_at, id_mensagem_wa, reacao
+       FROM ${messages}
+       WHERE telefone = $1
+       ORDER BY created_at ASC, id ASC
+       LIMIT 400`,
+      [telefone],
+    );
+  } catch {
+    mensagens = await query(
+      `SELECT id, direcao, texto, operador_id, created_at, id_mensagem_wa
+       FROM ${messages}
+       WHERE telefone = $1
+       ORDER BY created_at ASC, id ASC
+       LIMIT 400`,
+      [telefone],
+    );
+  }
   const acoes = await query(
     `SELECT * FROM ${actions} WHERE ${tables.actionPhone} = $1 ORDER BY 1 DESC LIMIT 20`,
     [telefone],

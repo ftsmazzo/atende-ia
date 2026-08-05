@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { isResponse, requireUser } from "@/lib/api";
-import { sendWhatsAppText } from "@/lib/evolution";
+import { sendWhatsAppPresence, sendWhatsAppText } from "@/lib/evolution";
 import { tables } from "@/lib/schema";
 
 type Params = { params: Promise<{ telefone: string }> };
@@ -27,11 +27,12 @@ export async function POST(request: Request, { params }: Params) {
     );
   }
 
-  await sendWhatsAppText(telefone, texto);
+  await sendWhatsAppPresence(telefone, "composing", 2500).catch(() => undefined);
+  const sent = await sendWhatsAppText(telefone, texto);
   await query(
-    `INSERT INTO ${tables.messages} (telefone, direcao, texto, instancia, operador_id)
-     VALUES ($1, 'outbound_humano', $2, $3, $4)`,
-    [telefone, texto, process.env.EVOLUTION_INSTANCE ?? null, user.id],
+    `INSERT INTO ${tables.messages} (telefone, direcao, texto, instancia, operador_id, id_mensagem_wa)
+     VALUES ($1, 'outbound_humano', $2, $3, $4, $5)`,
+    [telefone, texto, process.env.EVOLUTION_INSTANCE ?? null, user.id, sent.id],
   );
 
   return NextResponse.json({ ok: true });
