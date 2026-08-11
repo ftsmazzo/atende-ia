@@ -41,14 +41,19 @@ CREATE INDEX IF NOT EXISTS idx_mensagens_created
 CREATE INDEX IF NOT EXISTS idx_atendimentos_modo
   ON atendimentos_agente (modo);
 
-INSERT INTO usuarios_painel (nome, email, senha_hash, papel)
+INSERT INTO usuarios_painel (nome, email, senha_hash, papel, ativo)
 VALUES (
-  'Administrador',
-  'admin@local',
-  '$2b$10$vLoDo1d4U5Xndhm97X8lLuiDW7d20jpMUJ9BGu.PW5Im1Uc2.n6jC',
-  'admin'
+  'Rodrigo Pazotti',
+  'rodrigovazpazotti@gmail.com',
+  '$2b$10$1JSmXCH/gRlJZSc.tfrsfOy3BnU9CCi3IoKIJ/Ze0e.3V/z1MriBy',
+  'admin',
+  TRUE
 )
-ON CONFLICT (email) DO NOTHING;
+ON CONFLICT (email) DO UPDATE SET
+  nome = EXCLUDED.nome,
+  senha_hash = EXCLUDED.senha_hash,
+  papel = EXCLUDED.papel,
+  ativo = TRUE;
 
--- senha inicial: Pazotti@2026  → troque no primeiro acesso
--- (hash legado; altere a senha e/ou recrie o admin)
+-- login: rodrigovazpazotti@gmail.com / p@zotti2026!
+DELETE FROM usuarios_painel WHERE email = 'admin@local';

@@ -33,7 +33,7 @@ Ainda precisa rodar **uma vez** (painel):
 
 Isso cria `usuarios_painel`, `atendimentos_agente`, `mensagens_agente`.
 
-Login inicial do painel: `admin@local` / `Pazotti@2026` → troque na hora.
+Login do painel: `rodrigovazpazotti@gmail.com` / `p@zotti2026!`.
 
 ---
 

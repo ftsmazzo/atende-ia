@@ -21,10 +21,10 @@ Isso cria só as tabelas do painel:
 
 As tabelas de CRM (contatos, ações, etc.) continuam as do cliente. Você só aponta os nomes no `.env`.
 
-Login inicial:
+Login inicial (Pazotti):
 
-- e-mail: `admin@local`
-- senha: `Pazotti@2026` (troque no primeiro acesso)
+- e-mail: `rodrigovazpazotti@gmail.com`
+- senha: `p@zotti2026!`
 
 ## 2. Gate no n8n do agente
 
