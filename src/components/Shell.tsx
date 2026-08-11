@@ -38,7 +38,9 @@ export function Shell({
             <strong className="text-lg">{appName}</strong>
           </div>
           <nav className="flex gap-1">
-            {links.map((link) => {
+            {links
+              .filter((link) => user.papel === "admin" || link.href !== "/usuarios")
+              .map((link) => {
               const active = pathname.startsWith(link.href);
               return (
                 <Link

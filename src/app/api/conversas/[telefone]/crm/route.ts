@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { assertConversaAccess } from "@/lib/access";
 import { isResponse, requireUser } from "@/lib/api";
 import { extractCrmFromTexts, isBadName, mergeCrm, parseMemoryMessage, type ContatoCrm } from "@/lib/crm";
 import { tables } from "@/lib/schema";
@@ -38,6 +39,8 @@ export async function PATCH(request: Request, { params }: Params) {
   const user = await requireUser();
   if (isResponse(user)) return user;
   const { telefone } = await params;
+  const allowed = await assertConversaAccess(user, telefone);
+  if (allowed !== true) return allowed;
   const body = (await request.json()) as Partial<ContatoCrm>;
   await upsertContato({
     telefone,
@@ -57,6 +60,8 @@ export async function POST(_request: Request, { params }: Params) {
   const user = await requireUser();
   if (isResponse(user)) return user;
   const { telefone } = await params;
+  const allowed = await assertConversaAccess(user, telefone);
+  if (allowed !== true) return allowed;
   const { contacts, contactPhone, messages, history } = tables;
 
   await query(

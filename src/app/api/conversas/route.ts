@@ -9,18 +9,22 @@ export async function GET(request: Request) {
   if (isResponse(user)) return user;
 
   const { searchParams } = new URL(request.url);
-  const filtro = searchParams.get("filtro") ?? "todas";
+  const filtroRaw = searchParams.get("filtro") ?? "todas";
+  // Corretor só vê o que foi encaminhado para ele.
+  const filtro = user.papel === "corretor" ? "minhas" : filtroRaw;
   const q = searchParams.get("q")?.trim() ?? "";
   const { contacts, attendances, messages, history, contactPhone, contactName } = tables;
 
   const where: string[] = ["1=1"];
   const params: unknown[] = [];
 
-  if (filtro === "humano") where.push(`COALESCE(a.modo, 'ia') = 'humano'`);
-  if (filtro === "ia") where.push(`COALESCE(a.modo, 'ia') = 'ia'`);
-  if (filtro === "minhas") {
+  if (user.papel === "corretor" || filtro === "minhas") {
     params.push(user.id);
     where.push(`a.operador_id = $${params.length}`);
+  } else if (filtro === "humano") {
+    where.push(`COALESCE(a.modo, 'ia') = 'humano'`);
+  } else if (filtro === "ia") {
+    where.push(`COALESCE(a.modo, 'ia') = 'ia'`);
   }
   if (q) {
     params.push(`%${q}%`);

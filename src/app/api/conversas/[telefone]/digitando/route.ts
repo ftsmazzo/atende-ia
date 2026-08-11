@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { assertConversaAccess } from "@/lib/access";
 import { isResponse, requireUser } from "@/lib/api";
 import { sendWhatsAppPresence } from "@/lib/evolution";
 
@@ -8,6 +9,9 @@ export async function POST(_request: Request, { params }: Params) {
   const user = await requireUser();
   if (isResponse(user)) return user;
   const { telefone } = await params;
+  const allowed = await assertConversaAccess(user, telefone);
+  if (allowed !== true) return allowed;
+
   try {
     await sendWhatsAppPresence(telefone, "composing", 4000);
   } catch (error) {

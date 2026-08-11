@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { assertConversaAccess } from "@/lib/access";
 import { isResponse, requireUser } from "@/lib/api";
 import { parseMemoryMessage } from "@/lib/crm";
 import { tables } from "@/lib/schema";
@@ -65,6 +66,8 @@ export async function GET(_request: Request, { params }: Params) {
   const user = await requireUser();
   if (isResponse(user)) return user;
   const { telefone } = await params;
+  const allowed = await assertConversaAccess(user, telefone);
+  if (allowed !== true) return allowed;
   const { contacts, attendances, messages, history, contactPhone } = tables;
 
   const [contato] = await query(

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { assertConversaAccess, isAdmin } from "@/lib/access";
 import { isResponse, requireUser } from "@/lib/api";
 import { sendWhatsAppPresence, sendWhatsAppText } from "@/lib/evolution";
 import { tables } from "@/lib/schema";
@@ -10,6 +11,9 @@ export async function POST(request: Request, { params }: Params) {
   const user = await requireUser();
   if (isResponse(user)) return user;
   const { telefone } = await params;
+  const allowed = await assertConversaAccess(user, telefone);
+  if (allowed !== true) return allowed;
+
   const body = (await request.json()) as { texto?: string };
   const texto = body.texto?.trim();
   if (!texto) {
@@ -25,6 +29,9 @@ export async function POST(request: Request, { params }: Params) {
       { error: "Assuma o atendimento antes de responder" },
       { status: 409 },
     );
+  }
+  if (!isAdmin(user) && atendimento.operador_id !== user.id) {
+    return NextResponse.json({ error: "Conversa não atribuída a você" }, { status: 403 });
   }
 
   await sendWhatsAppPresence(telefone, "composing", 2500).catch(() => undefined);

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { isAdmin } from "@/lib/access";
 import { isResponse, requireUser } from "@/lib/api";
 import { tables } from "@/lib/schema";
 
@@ -8,6 +9,10 @@ type Params = { params: Promise<{ telefone: string }> };
 export async function POST(request: Request, { params }: Params) {
   const user = await requireUser();
   if (isResponse(user)) return user;
+  if (!isAdmin(user)) {
+    return NextResponse.json({ error: "Só o administrador pode encaminhar" }, { status: 403 });
+  }
+
   const { telefone } = await params;
   const body = (await request.json()) as { operadorId?: number };
   if (!body.operadorId) {
@@ -19,7 +24,7 @@ export async function POST(request: Request, { params }: Params) {
     [body.operadorId],
   );
   if (!operador) {
-    return NextResponse.json({ error: "Usuário inválido" }, { status: 404 });
+    return NextResponse.json({ error: "Operador inválido" }, { status: 404 });
   }
 
   await query(

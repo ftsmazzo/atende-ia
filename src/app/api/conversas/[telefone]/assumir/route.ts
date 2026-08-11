@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { isAdmin } from "@/lib/access";
 import { isResponse, requireUser } from "@/lib/api";
 import { tables } from "@/lib/schema";
 
@@ -9,6 +10,14 @@ export async function POST(_request: Request, { params }: Params) {
   const user = await requireUser();
   if (isResponse(user)) return user;
   const { telefone } = await params;
+
+  // Corretor não “pega” conversa da fila geral — só recebe por encaminhamento.
+  if (!isAdmin(user)) {
+    return NextResponse.json(
+      { error: "Aguarde o administrador encaminhar a conversa para você" },
+      { status: 403 },
+    );
+  }
 
   await query(
     `INSERT INTO ${tables.attendances} (telefone, modo, operador_id, assumido_em, devolvido_em, updated_at)

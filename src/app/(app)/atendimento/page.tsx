@@ -74,7 +74,8 @@ function crmFromContato(contato: Record<string, unknown> | null | undefined) {
 function AtendimentoInner() {
   const search = useSearchParams();
   const initialTel = search.get("tel") ?? "";
-  const [filtro, setFiltro] = useState("todas");
+  const [papel, setPapel] = useState<"admin" | "corretor">("corretor");
+  const [filtro, setFiltro] = useState("minhas");
   const [q, setQ] = useState("");
   const [lista, setLista] = useState<Conversa[]>([]);
   const [tel, setTel] = useState(initialTel);
@@ -95,6 +96,19 @@ function AtendimentoInner() {
   filtroRef.current = filtro;
   qRef.current = q;
 
+  const isAdmin = papel === "admin";
+
+  useEffect(() => {
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => {
+        const next = data?.user?.papel === "admin" ? "admin" : "corretor";
+        setPapel(next);
+        setFiltro(next === "admin" ? "todas" : "minhas");
+      })
+      .catch(() => undefined);
+  }, []);
+
   const loadLista = useCallback(async () => {
     const params = new URLSearchParams({ filtro: filtroRef.current, q: qRef.current });
     const r = await fetch(`/api/conversas?${params}`, { cache: "no-store" });
@@ -104,6 +118,11 @@ function AtendimentoInner() {
 
   const loadDetalhe = useCallback(async (telefone: string, opts?: { syncCrm?: boolean }) => {
     const r = await fetch(`/api/conversas/${telefone}`, { cache: "no-store" });
+    if (!r.ok) {
+      setDetalhe(null);
+      setErro("Conversa não disponível para você");
+      return;
+    }
     const data = (await r.json()) as Detalhe;
     setDetalhe((prev) => {
       const prevLast = prev?.mensagens.at(-1)?.id;
@@ -243,12 +262,15 @@ function AtendimentoInner() {
             onChange={(e) => setQ(e.target.value)}
           />
           <div className="flex flex-wrap gap-1 text-xs">
-            {[
-              ["todas", "Todas"],
-              ["humano", "Humanas"],
-              ["ia", "Agente"],
-              ["minhas", "Minhas"],
-            ].map(([id, label]) => (
+            {(isAdmin
+              ? [
+                  ["todas", "Todas"],
+                  ["humano", "Humanas"],
+                  ["ia", "Agente"],
+                  ["minhas", "Minhas"],
+                ]
+              : [["minhas", "Minhas"]]
+            ).map(([id, label]) => (
               <button
                 key={id}
                 onClick={() => setFiltro(id)}
@@ -258,6 +280,9 @@ function AtendimentoInner() {
               </button>
             ))}
           </div>
+          {!isAdmin ? (
+            <p className="text-[11px] text-muted">Só aparecem conversas encaminhadas para você.</p>
+          ) : null}
         </div>
         <ul className="max-h-[60vh] overflow-y-auto">
           {lista.map((item) => (
@@ -288,9 +313,11 @@ function AtendimentoInner() {
           </div>
           {tel ? (
             <div className="flex flex-wrap gap-2 text-sm">
-              <button onClick={() => action("assumir")} className="rounded-lg bg-accent px-3 py-1.5 text-white">
-                Assumir
-              </button>
+              {isAdmin ? (
+                <button onClick={() => action("assumir")} className="rounded-lg bg-accent px-3 py-1.5 text-white">
+                  Assumir
+                </button>
+              ) : null}
               <button onClick={() => action("devolver")} className="rounded-lg border border-line px-3 py-1.5">
                 Devolver ao agente
               </button>
@@ -369,26 +396,34 @@ function AtendimentoInner() {
       </section>
 
       <aside className="border-t border-line p-3 lg:border-l lg:border-t-0">
-        <h2 className="text-sm font-medium">Transferir</h2>
-        <select
-          className="mt-2 w-full rounded-lg border border-line px-2 py-2 text-sm"
-          value={operadorId}
-          onChange={(e) => setOperadorId(e.target.value)}
-        >
-          <option value="">Selecionar usuário</option>
-          {detalhe?.operadores.map((op) => (
-            <option key={op.id} value={op.id}>
-              {op.nome} ({op.papel})
-            </option>
-          ))}
-        </select>
-        <button
-          className="mt-2 w-full rounded-lg border border-line py-2 text-sm"
-          disabled={!tel || !operadorId}
-          onClick={() => action("atribuir", { operadorId: Number(operadorId) })}
-        >
-          Atribuir e pausar agente
-        </button>
+        {isAdmin ? (
+          <>
+            <h2 className="text-sm font-medium">Transferir</h2>
+            <select
+              className="mt-2 w-full rounded-lg border border-line px-2 py-2 text-sm"
+              value={operadorId}
+              onChange={(e) => setOperadorId(e.target.value)}
+            >
+              <option value="">Selecionar usuário</option>
+              {detalhe?.operadores.map((op) => (
+                <option key={op.id} value={op.id}>
+                  {op.nome} ({op.papel})
+                </option>
+              ))}
+            </select>
+            <button
+              className="mt-2 w-full rounded-lg border border-line py-2 text-sm"
+              disabled={!tel || !operadorId}
+              onClick={() => action("atribuir", { operadorId: Number(operadorId) })}
+            >
+              Atribuir e pausar agente
+            </button>
+          </>
+        ) : (
+          <p className="text-xs text-muted">
+            Você atende apenas conversas encaminhadas pelo administrador.
+          </p>
+        )}
         <h2 className="mt-6 text-sm font-medium">Lead / CRM</h2>
         <div className="mt-2 space-y-2 text-sm">
           {[
