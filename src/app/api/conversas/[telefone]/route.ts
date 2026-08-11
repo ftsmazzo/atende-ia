@@ -129,21 +129,20 @@ export async function GET(_request: Request, { params }: Params) {
        LIMIT 800`,
       [telefone, `${telefone}@s.whatsapp.net`],
     );
-    historico = rows
-      .map((row) => {
-        const parsed = parseMemoryMessage(row.message);
-        if (!parsed || parsed.role === "other") return null;
-        return {
-          id: `h-${row.id}`,
-          direcao: parsed.role === "human" ? "inbound" : "outbound_ia",
-          texto: parsed.text,
-          created_at: row.created_at,
-          id_mensagem_wa: null,
-          reacao: null,
-          fonte: "historico" as const,
-        };
-      })
-      .filter((item): item is MsgRow => Boolean(item));
+    historico = rows.flatMap((row) => {
+      const parsed = parseMemoryMessage(row.message);
+      if (!parsed || parsed.role === "other") return [];
+      const msg: MsgRow = {
+        id: `h-${row.id}`,
+        direcao: parsed.role === "human" ? "inbound" : "outbound_ia",
+        texto: parsed.text,
+        created_at: row.created_at,
+        id_mensagem_wa: null,
+        reacao: null,
+        fonte: "historico",
+      };
+      return [msg];
+    });
   } catch {
     historico = [];
   }
