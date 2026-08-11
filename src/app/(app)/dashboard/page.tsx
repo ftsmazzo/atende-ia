@@ -14,6 +14,7 @@ type Dash = {
     ultima: string;
     preview: string;
   }[];
+  telefone_visivel?: boolean;
 };
 
 export default function DashboardPage() {
@@ -35,6 +36,7 @@ export default function DashboardPage() {
   if (erro) return <p className="text-accent">{erro}. Confira se o SQL do painel já rodou no Postgres.</p>;
   if (!data) return <p className="text-muted">Carregando indicadores...</p>;
 
+  const showPhone = data.telefone_visivel !== false;
   const cards = [
     ["Contatos", data.kpis.contatos, `+${data.kpis.contatos_7d} em 7 dias`],
     ["Ações de lead", data.kpis.acoes, `+${data.kpis.acoes_7d} em 7 dias`],
@@ -130,7 +132,7 @@ export default function DashboardPage() {
                 <tr key={row.telefone} className="border-t border-line/80">
                   <td className="py-2">
                     <a className="text-accent underline-offset-2 hover:underline" href={`/atendimento?tel=${row.telefone}`}>
-                      {row.nome_cliente || row.telefone}
+                      {row.nome_cliente || (showPhone ? row.telefone : "Cliente")}
                     </a>
                   </td>
                   <td>{row.modo === "humano" ? `Humano${row.operador ? ` · ${row.operador}` : ""}` : "Agente"}</td>

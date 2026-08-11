@@ -28,9 +28,13 @@ export async function GET(request: Request) {
   }
   if (q) {
     params.push(`%${q}%`);
-    where.push(
-      `(x.telefone ILIKE $${params.length} OR COALESCE(c.${contactName}::text, '') ILIKE $${params.length})`,
-    );
+    if (user.papel === "corretor") {
+      where.push(`COALESCE(c.${contactName}::text, '') ILIKE $${params.length}`);
+    } else {
+      where.push(
+        `(x.telefone ILIKE $${params.length} OR COALESCE(c.${contactName}::text, '') ILIKE $${params.length})`,
+      );
+    }
   }
 
   // Ordem da lista: created_at do histórico + só mensagens “vivas” do painel

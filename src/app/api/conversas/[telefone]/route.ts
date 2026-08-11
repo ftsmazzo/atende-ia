@@ -152,9 +152,23 @@ export async function GET(_request: Request, { params }: Params) {
 
   const mensagens = mergeTimeline(historico, painel);
 
-  const operadores = await query(
-    `SELECT id, nome, papel FROM usuarios_painel WHERE ativo = TRUE ORDER BY nome`,
-  );
+  const operadores =
+    user.papel === "admin"
+      ? await query(`SELECT id, nome, papel FROM usuarios_painel WHERE ativo = TRUE ORDER BY nome`)
+      : [];
 
-  return NextResponse.json({ contato, atendimento, mensagens, operadores });
+  const contatoSafe =
+    contato && user.papel === "corretor"
+      ? Object.fromEntries(
+          Object.entries(contato as Record<string, unknown>).filter(([key]) => key !== contactPhone),
+        )
+      : (contato ?? null);
+
+  return NextResponse.json({
+    contato: contatoSafe,
+    atendimento,
+    mensagens,
+    operadores,
+    telefone_visivel: user.papel === "admin",
+  });
 }

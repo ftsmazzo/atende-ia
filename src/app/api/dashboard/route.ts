@@ -136,5 +136,5 @@ export async function GET() {
     admin ? [] : [user.id],
   );
 
-  return NextResponse.json({ kpis, acoesPorStatus, volume, recentes });
+  return NextResponse.json({ kpis, acoesPorStatus, volume, recentes, telefone_visivel: admin });
 }

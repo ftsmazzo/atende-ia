@@ -87,8 +87,10 @@ export function AtendimentoClient({ papel }: { papel: "admin" | "corretor" }) {
   const [erro, setErro] = useState("");
   const [okMsg, setOkMsg] = useState("");
   const [atribuindo, setAtribuindo] = useState(false);
+  const [enviando, setEnviando] = useState(false);
   const [crm, setCrm] = useState(emptyCrm);
   const typingRef = useRef<number | null>(null);
+  const enviandoRef = useRef(false);
   const dirtyCrm = useRef(false);
   const chatRef = useRef<HTMLDivElement | null>(null);
   const nearBottom = useRef(true);
@@ -234,9 +236,19 @@ export function AtendimentoClient({ papel }: { papel: "admin" | "corretor" }) {
   }
 
   async function enviar() {
-    if (!texto.trim()) return;
-    await action("enviar", { texto });
-    setTexto("");
+    const payload = texto.trim();
+    if (!payload || !tel || modo !== "humano") return;
+    if (enviandoRef.current) return;
+    enviandoRef.current = true;
+    setEnviando(true);
+    setErro("");
+    try {
+      const ok = await action("enviar", { texto: payload });
+      if (ok) setTexto("");
+    } finally {
+      enviandoRef.current = false;
+      setEnviando(false);
+    }
   }
 
   function onTyping(value: string) {
@@ -285,8 +297,15 @@ export function AtendimentoClient({ papel }: { papel: "admin" | "corretor" }) {
 
   const titulo = useMemo(() => {
     const nome = detalhe?.contato?.nome_cliente || crm.nome_cliente;
-    return typeof nome === "string" && nome ? nome : tel || "Selecione uma conversa";
-  }, [detalhe, tel, crm.nome_cliente]);
+    if (typeof nome === "string" && nome.trim()) return nome;
+    if (!tel) return "Selecione uma conversa";
+    return isAdmin ? tel : "Cliente";
+  }, [detalhe, tel, crm.nome_cliente, isAdmin]);
+
+  function labelConversa(item: Conversa) {
+    if (item.nome_cliente?.trim()) return item.nome_cliente;
+    return isAdmin ? item.telefone : "Cliente";
+  }
 
   return (
     <div className="grid min-h-[72vh] overflow-hidden rounded-2xl border border-line bg-card lg:grid-cols-[320px_1fr_280px]">
@@ -294,7 +313,7 @@ export function AtendimentoClient({ papel }: { papel: "admin" | "corretor" }) {
         <div className="space-y-2 border-b border-line p-3">
           <input
             className="w-full rounded-lg border border-line px-3 py-2 text-sm"
-            placeholder="Buscar nome ou telefone"
+            placeholder={isAdmin ? "Buscar nome ou telefone" : "Buscar nome"}
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -331,7 +350,7 @@ export function AtendimentoClient({ papel }: { papel: "admin" | "corretor" }) {
                 className={`w-full border-b border-line/70 px-3 py-3 text-left ${tel === item.telefone ? "bg-accent-soft" : ""}`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <strong className="text-sm">{item.nome_cliente || item.telefone}</strong>
+                  <strong className="text-sm">{labelConversa(item)}</strong>
                   <span className="text-[10px] text-muted">{formatMsgTime(item.ultima)}</span>
                 </div>
                 <div className="mt-1 flex items-center justify-between gap-2">
@@ -348,7 +367,7 @@ export function AtendimentoClient({ papel }: { papel: "admin" | "corretor" }) {
         <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line p-3">
           <div>
             <h1 className="text-lg font-semibold">{titulo}</h1>
-            <p className="text-xs text-muted">{tel || "—"}</p>
+            {isAdmin ? <p className="text-xs text-muted">{tel || "—"}</p> : null}
             {detalhe?.atendimento?.operador ? (
               <p className="text-xs text-muted">Com: {detalhe.atendimento.operador}</p>
             ) : null}
@@ -433,16 +452,22 @@ export function AtendimentoClient({ papel }: { papel: "admin" | "corretor" }) {
               className="min-h-12 flex-1 rounded-lg border border-line px-3 py-2 text-sm"
               placeholder={modo === "humano" ? "Escreva como corretor..." : "Assuma / atribua o atendimento para responder"}
               value={texto}
-              disabled={!tel || modo !== "humano"}
+              disabled={!tel || modo !== "humano" || enviando}
               onChange={(e) => onTyping(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  void enviar();
+                }
+              }}
             />
             <button
               type="button"
               onClick={() => void enviar()}
-              disabled={!tel || modo !== "humano"}
+              disabled={!tel || modo !== "humano" || enviando || !texto.trim()}
               className="rounded-lg bg-ink px-4 text-sm text-white disabled:opacity-40"
             >
-              Enviar
+              {enviando ? "Enviando…" : "Enviar"}
             </button>
           </div>
         </footer>
