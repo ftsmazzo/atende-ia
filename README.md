@@ -66,3 +66,7 @@ cp .env.example .env.local
 npm install
 npm run dev
 ```
+
+## 5. Produção / cutover (Pazotti)
+
+Ver **`CUTOVER-PRODUCAO.md`**: dump do Postgres antigo no dia D, restore no EasyPanel, SQL do painel, Evolution e webhook SofIA.

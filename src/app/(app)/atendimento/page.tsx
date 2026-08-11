@@ -14,7 +14,7 @@ type Conversa = {
 };
 
 type Mensagem = {
-  id: number;
+  id: number | string;
   direcao: string;
   texto: string;
   created_at: string;
@@ -38,9 +38,11 @@ function formatMsgTime(value?: string | null) {
   if (Number.isNaN(date.getTime())) return "";
   const now = new Date();
   const sameDay = date.toDateString() === now.toDateString();
+  const sameYear = date.getFullYear() === now.getFullYear();
   return new Intl.DateTimeFormat("pt-BR", {
     day: sameDay ? undefined : "2-digit",
     month: sameDay ? undefined : "2-digit",
+    year: sameDay || sameYear ? undefined : "numeric",
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
