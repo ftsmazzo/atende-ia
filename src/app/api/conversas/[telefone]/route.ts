@@ -62,6 +62,9 @@ function mergeTimeline(historico: MsgRow[], painel: MsgRow[]): MsgRow[] {
   });
 }
 
+const HISTORY_DAYS = 7;
+const MAX_MESSAGES = 80;
+
 export async function GET(_request: Request, { params }: Params) {
   const user = await requireUser();
   if (isResponse(user)) return user;
@@ -95,11 +98,15 @@ export async function GET(_request: Request, { params }: Params) {
       `SELECT id, direcao, texto, operador_id, created_at, id_mensagem_wa, reacao
        FROM ${messages}
        WHERE telefone = $1
-       ORDER BY created_at ASC, id ASC
-       LIMIT 800`,
+         AND created_at >= NOW() - INTERVAL '${HISTORY_DAYS} days'
+       ORDER BY created_at DESC, id DESC
+       LIMIT ${MAX_MESSAGES}`,
       [telefone],
     );
-    painel = rows.map((r) => ({ ...r, fonte: "painel" as const }));
+    painel = rows
+      .slice()
+      .reverse()
+      .map((r) => ({ ...r, fonte: "painel" as const }));
   } catch {
     const rows = await query<{
       id: number;
@@ -111,11 +118,15 @@ export async function GET(_request: Request, { params }: Params) {
       `SELECT id, direcao, texto, operador_id, created_at, id_mensagem_wa
        FROM ${messages}
        WHERE telefone = $1
-       ORDER BY created_at ASC, id ASC
-       LIMIT 800`,
+         AND created_at >= NOW() - INTERVAL '${HISTORY_DAYS} days'
+       ORDER BY created_at DESC, id DESC
+       LIMIT ${MAX_MESSAGES}`,
       [telefone],
     );
-    painel = rows.map((r) => ({ ...r, fonte: "painel" as const }));
+    painel = rows
+      .slice()
+      .reverse()
+      .map((r) => ({ ...r, fonte: "painel" as const }));
   }
 
   let historico: MsgRow[] = [];
@@ -127,12 +138,16 @@ export async function GET(_request: Request, { params }: Params) {
     }>(
       `SELECT id, message, created_at
        FROM ${history}
-       WHERE session_id = $1 OR session_id = $2
-       ORDER BY created_at ASC, id ASC
-       LIMIT 800`,
+       WHERE (session_id = $1 OR session_id = $2)
+         AND created_at >= NOW() - INTERVAL '${HISTORY_DAYS} days'
+       ORDER BY created_at DESC, id DESC
+       LIMIT ${MAX_MESSAGES}`,
       [telefone, `${telefone}@s.whatsapp.net`],
     );
-    historico = rows.flatMap((row) => {
+    historico = rows
+      .slice()
+      .reverse()
+      .flatMap((row) => {
       const parsed = parseMemoryMessage(row.message);
       if (!parsed || parsed.role === "other") return [];
       const msg: MsgRow = {
@@ -150,7 +165,7 @@ export async function GET(_request: Request, { params }: Params) {
     historico = [];
   }
 
-  const mensagens = mergeTimeline(historico, painel);
+  const mensagens = mergeTimeline(historico, painel).slice(-MAX_MESSAGES);
 
   const operadores =
     user.papel === "admin"

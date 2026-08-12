@@ -308,8 +308,8 @@ export function AtendimentoClient({ papel }: { papel: "admin" | "corretor" }) {
   }
 
   return (
-    <div className="grid min-h-[72vh] overflow-hidden rounded-2xl border border-line bg-card lg:grid-cols-[320px_1fr_280px]">
-      <aside className="border-b border-line lg:border-b-0 lg:border-r">
+    <div className="grid h-[calc(100vh-8.5rem)] min-h-[540px] overflow-hidden rounded-2xl border border-line bg-card lg:grid-cols-[320px_minmax(0,1fr)_280px]">
+      <aside className="flex min-h-0 flex-col border-b border-line lg:border-b-0 lg:border-r">
         <div className="space-y-2 border-b border-line p-3">
           <input
             className="w-full rounded-lg border border-line px-3 py-2 text-sm"
@@ -341,7 +341,7 @@ export function AtendimentoClient({ papel }: { papel: "admin" | "corretor" }) {
             <p className="text-[11px] text-muted">Só aparecem conversas encaminhadas para você.</p>
           ) : null}
         </div>
-        <ul className="max-h-[60vh] overflow-y-auto">
+        <ul className="min-h-0 flex-1 overflow-y-auto">
           {lista.map((item) => (
             <li key={item.telefone}>
               <button
@@ -363,8 +363,8 @@ export function AtendimentoClient({ papel }: { papel: "admin" | "corretor" }) {
         </ul>
       </aside>
 
-      <section className="flex min-h-[50vh] flex-col">
-        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line p-3">
+      <section className="flex min-h-0 flex-col">
+        <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line p-3">
           <div>
             <h1 className="text-lg font-semibold">{titulo}</h1>
             {isAdmin ? <p className="text-xs text-muted">{tel || "—"}</p> : null}
@@ -395,12 +395,17 @@ export function AtendimentoClient({ papel }: { papel: "admin" | "corretor" }) {
         </header>
         <div
           ref={chatRef}
-          className="flex-1 space-y-2 overflow-y-auto p-4"
+          className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4"
           onScroll={(e) => {
             const el = e.currentTarget;
             nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
           }}
         >
+          {tel && detalhe?.mensagens.length ? (
+            <p className="mb-3 text-center text-[11px] text-muted">
+              Últimos 7 dias · até {detalhe.mensagens.length} mensagens
+            </p>
+          ) : null}
           {detalhe?.mensagens.map((msg) => (
             <div
               key={msg.id}
@@ -444,7 +449,7 @@ export function AtendimentoClient({ papel }: { papel: "admin" | "corretor" }) {
             </div>
           ))}
         </div>
-        <footer className="border-t border-line p-3">
+        <footer className="shrink-0 border-t border-line p-3">
           {erro ? <p className="mb-2 text-sm text-accent">{erro}</p> : null}
           {okMsg ? <p className="mb-2 text-sm text-muted">{okMsg}</p> : null}
           <div className="flex gap-2">
@@ -473,7 +478,7 @@ export function AtendimentoClient({ papel }: { papel: "admin" | "corretor" }) {
         </footer>
       </section>
 
-      <aside className="border-t border-line p-3 lg:border-l lg:border-t-0">
+      <aside className="min-h-0 overflow-y-auto border-t border-line p-3 lg:border-l lg:border-t-0">
         {isAdmin ? (
           <>
             <h2 className="text-sm font-medium">Transferir</h2>
