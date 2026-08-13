@@ -62,8 +62,10 @@ function mergeTimeline(historico: MsgRow[], painel: MsgRow[]): MsgRow[] {
   });
 }
 
-const HISTORY_DAYS = 7;
-const MAX_MESSAGES = 80;
+/** Últimas N trocas (ida ou volta), sem recorte por data. */
+const MAX_TROCAS = 7;
+/** Busca folgada para o merge historico+painel ainda achar pares. */
+const FETCH_LIMIT = 40;
 
 export async function GET(_request: Request, { params }: Params) {
   const user = await requireUser();
@@ -98,9 +100,8 @@ export async function GET(_request: Request, { params }: Params) {
       `SELECT id, direcao, texto, operador_id, created_at, id_mensagem_wa, reacao
        FROM ${messages}
        WHERE telefone = $1
-         AND created_at >= NOW() - INTERVAL '${HISTORY_DAYS} days'
        ORDER BY created_at DESC, id DESC
-       LIMIT ${MAX_MESSAGES}`,
+       LIMIT ${FETCH_LIMIT}`,
       [telefone],
     );
     painel = rows
@@ -118,9 +119,8 @@ export async function GET(_request: Request, { params }: Params) {
       `SELECT id, direcao, texto, operador_id, created_at, id_mensagem_wa
        FROM ${messages}
        WHERE telefone = $1
-         AND created_at >= NOW() - INTERVAL '${HISTORY_DAYS} days'
        ORDER BY created_at DESC, id DESC
-       LIMIT ${MAX_MESSAGES}`,
+       LIMIT ${FETCH_LIMIT}`,
       [telefone],
     );
     painel = rows
@@ -139,9 +139,8 @@ export async function GET(_request: Request, { params }: Params) {
       `SELECT id, message, created_at
        FROM ${history}
        WHERE (session_id = $1 OR session_id = $2)
-         AND created_at >= NOW() - INTERVAL '${HISTORY_DAYS} days'
        ORDER BY created_at DESC, id DESC
-       LIMIT ${MAX_MESSAGES}`,
+       LIMIT ${FETCH_LIMIT}`,
       [telefone, `${telefone}@s.whatsapp.net`],
     );
     historico = rows
@@ -165,7 +164,7 @@ export async function GET(_request: Request, { params }: Params) {
     historico = [];
   }
 
-  const mensagens = mergeTimeline(historico, painel).slice(-MAX_MESSAGES);
+  const mensagens = mergeTimeline(historico, painel).slice(-MAX_TROCAS);
 
   const operadores =
     user.papel === "admin"

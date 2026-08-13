@@ -403,7 +403,7 @@ export function AtendimentoClient({ papel }: { papel: "admin" | "corretor" }) {
         >
           {tel && detalhe?.mensagens.length ? (
             <p className="mb-3 text-center text-[11px] text-muted">
-              Últimos 7 dias · até {detalhe.mensagens.length} mensagens
+              Últimas {detalhe.mensagens.length} trocas
             </p>
           ) : null}
           {detalhe?.mensagens.map((msg) => (
