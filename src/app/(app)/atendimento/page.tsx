@@ -8,8 +8,10 @@ export default async function AtendimentoPage() {
   if (!user) redirect("/login");
 
   return (
-    <Suspense fallback={<p className="text-muted">Abrindo atendimento...</p>}>
-      <AtendimentoClient papel={user.papel} />
+    <Suspense fallback={<p className="p-4 text-muted">Abrindo atendimento...</p>}>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <AtendimentoClient papel={user.papel} />
+      </div>
     </Suspense>
   );
 }

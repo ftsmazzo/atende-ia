@@ -23,8 +23,40 @@
   --font-sans: var(--font-geist-sans);
 }
 
+html,
+body {
+  height: 100%;
+}
+
 body {
   background: var(--bg);
   color: var(--ink);
-  font-family: var(--font-geist-sans), Georgia, serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+input,
+textarea,
+select,
+button {
+  font-size: 16px;
+}
+
+@media (min-width: 640px) {
+  input,
+  textarea,
+  select,
+  button {
+    font-size: inherit;
+  }
+}
+
+.bg-chat {
+  background:
+    radial-gradient(circle at top, rgb(139 30 45 / 0.06), transparent 42%),
+    var(--bg);
+}
+
+.chat-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }

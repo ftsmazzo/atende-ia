@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { InstallApp } from "@/components/InstallApp";
 
 type Conversa = {
   telefone: string;
@@ -73,6 +75,7 @@ function crmFromContato(contato: Record<string, unknown> | null | undefined) {
 }
 
 export function AtendimentoClient({ papel }: { papel: "admin" | "corretor" }) {
+  const router = useRouter();
   const search = useSearchParams();
   const initialTel = search.get("tel") ?? "";
   const isAdmin = papel === "admin";
@@ -89,6 +92,8 @@ export function AtendimentoClient({ papel }: { papel: "admin" | "corretor" }) {
   const [atribuindo, setAtribuindo] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [crm, setCrm] = useState(emptyCrm);
+  const [crmOpen, setCrmOpen] = useState(false);
+  const [reactId, setReactId] = useState<string | null>(null);
   const typingRef = useRef<number | null>(null);
   const enviandoRef = useRef(false);
   const dirtyCrm = useRef(false);
@@ -307,9 +312,38 @@ export function AtendimentoClient({ papel }: { papel: "admin" | "corretor" }) {
     return isAdmin ? item.telefone : "Cliente";
   }
 
+  const noChat = !tel;
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
+  }
+
   return (
-    <div className="grid h-[calc(100vh-8.5rem)] min-h-[540px] overflow-hidden rounded-2xl border border-line bg-card lg:grid-cols-[320px_minmax(0,1fr)_280px]">
-      <aside className="flex min-h-0 flex-col border-b border-line lg:border-b-0 lg:border-r">
+    <div className="grid h-full min-h-0 flex-1 overflow-hidden bg-bg lg:grid-cols-[300px_minmax(0,1fr)_260px]">
+      <aside
+        className={`min-h-0 flex-col border-line bg-card ${
+          noChat ? "flex h-full" : "hidden lg:flex"
+        } lg:border-r`}
+      >
+        <div className="border-b border-line px-3 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] lg:hidden">
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-muted">Conversas</p>
+              <strong className="block truncate text-sm">Atendimento</strong>
+            </div>
+            <Link href="/dashboard" className="rounded-full border border-line px-2.5 py-1 text-xs">
+              Painel
+            </Link>
+            <button type="button" onClick={() => void logout()} className="rounded-full border border-line px-2.5 py-1 text-xs">
+              Sair
+            </button>
+          </div>
+          <div className="mt-2">
+            <InstallApp variant="banner" />
+          </div>
+        </div>
         <div className="space-y-2 border-b border-line p-3">
           <input
             className="w-full rounded-lg border border-line px-3 py-2 text-sm"
@@ -347,115 +381,183 @@ export function AtendimentoClient({ papel }: { papel: "admin" | "corretor" }) {
               <button
                 type="button"
                 onClick={() => setTel(item.telefone)}
-                className={`w-full border-b border-line/70 px-3 py-3 text-left ${tel === item.telefone ? "bg-accent-soft" : ""}`}
+                className={`flex w-full gap-3 border-b border-line/70 px-3 py-3 text-left ${tel === item.telefone ? "bg-accent-soft" : ""}`}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <strong className="text-sm">{labelConversa(item)}</strong>
-                  <span className="text-[10px] text-muted">{formatMsgTime(item.ultima)}</span>
-                </div>
-                <div className="mt-1 flex items-center justify-between gap-2">
-                  <p className="truncate text-xs text-muted">{item.preview}</p>
-                  <span className="shrink-0 text-[10px] uppercase text-muted">{item.modo}</span>
-                </div>
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-accent-soft text-sm font-semibold text-accent">
+                  {labelConversa(item).slice(0, 1).toUpperCase()}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center justify-between gap-2">
+                    <strong className="truncate text-[15px]">{labelConversa(item)}</strong>
+                    <span className="shrink-0 text-[11px] text-muted">{formatMsgTime(item.ultima)}</span>
+                  </span>
+                  <span className="mt-0.5 flex items-center justify-between gap-2">
+                    <p className="truncate text-[13px] text-muted">{item.preview}</p>
+                    <span
+                      className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] uppercase ${
+                        item.modo === "humano" ? "bg-accent text-white" : "bg-bg text-muted"
+                      }`}
+                    >
+                      {item.modo === "humano" ? "você" : "agente"}
+                    </span>
+                  </span>
+                </span>
               </button>
             </li>
           ))}
         </ul>
       </aside>
 
-      <section className="flex min-h-0 flex-col">
-        <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line p-3">
-          <div>
-            <h1 className="text-lg font-semibold">{titulo}</h1>
-            {isAdmin ? <p className="text-xs text-muted">{tel || "—"}</p> : null}
-            {detalhe?.atendimento?.operador ? (
-              <p className="text-xs text-muted">Com: {detalhe.atendimento.operador}</p>
-            ) : null}
+      <section className={`min-h-0 flex-col bg-chat ${noChat ? "hidden lg:flex" : "flex h-full"}`}>
+        <header className="flex shrink-0 items-center gap-2 border-b border-line bg-card px-2 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:gap-3 sm:px-3 sm:py-3 lg:pt-3">
+          <button
+            type="button"
+            className="rounded-full px-2 py-1 text-sm text-accent lg:hidden"
+            onClick={() => setTel("")}
+          >
+            ←
+          </button>
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent-soft text-sm font-semibold text-accent">
+            {titulo.slice(0, 1).toUpperCase()}
+          </span>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-[16px] font-semibold leading-tight">{titulo}</h1>
+            <p className="truncate text-[11px] text-muted">
+              {modo === "humano"
+                ? detalhe?.atendimento?.operador
+                  ? `Com ${detalhe.atendimento.operador}`
+                  : "Atendimento humano"
+                : "Agente respondendo"}
+              {isAdmin && tel ? ` · ${tel}` : ""}
+            </p>
           </div>
           {tel ? (
-            <div className="flex flex-wrap gap-2 text-sm">
-              {isAdmin ? (
+            <div className="flex shrink-0 gap-1 sm:gap-2">
+              <button
+                type="button"
+                onClick={() => setCrmOpen(true)}
+                className="rounded-full border border-line px-3 py-1.5 text-xs lg:hidden"
+              >
+                Lead
+              </button>
+              {isAdmin && modo !== "humano" ? (
                 <button
                   type="button"
                   onClick={() => void action("assumir")}
-                  className="rounded-lg bg-accent px-3 py-1.5 text-white"
+                  className="rounded-full bg-accent px-3 py-1.5 text-xs text-white sm:text-sm"
                 >
                   Assumir
                 </button>
               ) : null}
-              <button
-                type="button"
-                onClick={() => void action("devolver")}
-                className="rounded-lg border border-line px-3 py-1.5"
-              >
-                Devolver ao agente
-              </button>
+              {modo === "humano" ? (
+                <button
+                  type="button"
+                  onClick={() => void action("devolver")}
+                  className="hidden rounded-full border border-line px-3 py-1.5 text-sm lg:inline"
+                >
+                  Devolver
+                </button>
+              ) : null}
             </div>
           ) : null}
         </header>
         <div
           ref={chatRef}
-          className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4"
+          className="chat-scroll min-h-0 flex-1 space-y-1.5 overflow-y-auto px-3 py-3 sm:px-4"
           onScroll={(e) => {
             const el = e.currentTarget;
             nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
           }}
         >
           {tel && detalhe?.mensagens.length ? (
-            <p className="mb-3 text-center text-[11px] text-muted">
-              Últimas {detalhe.mensagens.length} trocas
-            </p>
-          ) : null}
-          {detalhe?.mensagens.map((msg) => (
-            <div
-              key={msg.id}
-              className={`group relative max-w-[80%] rounded-2xl px-3 pb-5 pt-2 text-sm ${
-                msg.direcao === "inbound"
-                  ? "bg-bg"
-                  : msg.direcao === "outbound_ia"
-                    ? "ml-auto bg-accent-soft"
-                    : "ml-auto bg-accent text-white"
-              }`}
-            >
-              <p className="whitespace-pre-wrap">{msg.texto}</p>
-              <div className="mt-1 flex items-center justify-between gap-2">
-                <p className={`text-[10px] ${msg.direcao === "outbound_humano" ? "text-white/80" : "text-muted"}`}>
-                  {msg.direcao === "inbound" ? "Cliente" : msg.direcao === "outbound_ia" ? "Agente" : "Humano"}
-                  {msg.reacao ? ` · ${msg.reacao}` : ""}
-                </p>
-                {msg.id_mensagem_wa ? (
-                  <div className="hidden gap-1 group-hover:flex">
+            <p className="mb-3 text-center text-[11px] text-muted">{detalhe.mensagens.length} mensagens</p>
+          ) : tel ? (
+            <p className="py-8 text-center text-sm text-muted">Nenhuma mensagem ainda.</p>
+          ) : (
+            <p className="hidden py-16 text-center text-sm text-muted lg:block">Selecione uma conversa.</p>
+          )}
+          {detalhe?.mensagens.map((msg) => {
+            const inbound = msg.direcao === "inbound";
+            const humano = msg.direcao === "outbound_humano";
+            const openReact = reactId === String(msg.id);
+            return (
+              <div
+                key={msg.id}
+                className={`relative max-w-[82%] px-3 pb-4 pt-2 text-[15px] leading-snug shadow-sm ${
+                  inbound
+                    ? "rounded-[18px] rounded-bl-md bg-card"
+                    : humano
+                      ? "ml-auto rounded-[18px] rounded-br-md bg-accent text-white"
+                      : "ml-auto rounded-[18px] rounded-br-md bg-[#efe6d8] text-ink"
+                }`}
+                onClick={() => {
+                  if (!msg.id_mensagem_wa) return;
+                  setReactId(openReact ? null : String(msg.id));
+                }}
+              >
+                {msg.direcao === "outbound_ia" ? (
+                  <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted">Agente</p>
+                ) : null}
+                <p className="whitespace-pre-wrap break-words">{msg.texto}</p>
+                {msg.reacao ? <span className="mt-1 inline-block text-sm">{msg.reacao}</span> : null}
+                {openReact && msg.id_mensagem_wa ? (
+                  <div className="absolute -bottom-3 left-2 z-10 flex gap-0.5 rounded-full border border-line bg-card px-1 py-0.5 shadow-sm">
                     {REACTIONS.map((emoji) => (
                       <button
                         key={emoji}
                         type="button"
-                        className="rounded bg-white/80 px-1 text-xs"
-                        onClick={() => void reagir(msg.id_mensagem_wa!, emoji, msg.direcao !== "inbound")}
-                        title="Reagir"
+                        className="rounded-full px-1 text-sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setReactId(null);
+                          void reagir(msg.id_mensagem_wa!, emoji, !inbound);
+                        }}
                       >
                         {emoji}
                       </button>
                     ))}
                   </div>
                 ) : null}
+                <span
+                  className={`absolute bottom-1.5 right-2.5 text-[10px] tabular-nums ${
+                    humano ? "text-white/70" : "text-muted"
+                  }`}
+                >
+                  {formatMsgTime(msg.created_at)}
+                </span>
               </div>
-              <span
-                className={`absolute bottom-1.5 right-2 text-[10px] tabular-nums ${
-                  msg.direcao === "outbound_humano" ? "text-white/70" : "text-muted"
-                }`}
-              >
-                {formatMsgTime(msg.created_at)}
-              </span>
-            </div>
-          ))}
+            );
+          })}
         </div>
-        <footer className="shrink-0 border-t border-line p-3">
+        <footer className="shrink-0 border-t border-line bg-card px-2 pb-[max(0.65rem,env(safe-area-inset-bottom))] pt-2 sm:px-3 sm:pt-3">
           {erro ? <p className="mb-2 text-sm text-accent">{erro}</p> : null}
           {okMsg ? <p className="mb-2 text-sm text-muted">{okMsg}</p> : null}
-          <div className="flex gap-2">
+          {tel && modo !== "humano" && isAdmin ? (
+            <div className="mb-2 flex items-center justify-between gap-2 rounded-xl bg-accent-soft px-3 py-2">
+              <p className="text-xs text-ink">O agente está respondendo neste chat.</p>
+              <button
+                type="button"
+                onClick={() => void action("assumir")}
+                className="shrink-0 rounded-full bg-accent px-3 py-1 text-xs text-white"
+              >
+                Assumir
+              </button>
+            </div>
+          ) : null}
+          {tel && modo === "humano" ? (
+            <button
+              type="button"
+              onClick={() => void action("devolver")}
+              className="mb-2 text-xs text-muted underline lg:hidden"
+            >
+              Devolver ao agente
+            </button>
+          ) : null}
+          <div className="flex items-end gap-2">
             <textarea
-              className="min-h-12 flex-1 rounded-lg border border-line px-3 py-2 text-sm"
-              placeholder={modo === "humano" ? "Escreva como corretor..." : "Assuma / atribua o atendimento para responder"}
+              rows={1}
+              className="max-h-28 min-h-11 flex-1 resize-none rounded-[22px] border border-line bg-bg px-4 py-2.5"
+              placeholder={modo === "humano" ? "Mensagem" : "Assuma para responder"}
               value={texto}
               disabled={!tel || modo !== "humano" || enviando}
               onChange={(e) => onTyping(e.target.value)}
@@ -470,15 +572,36 @@ export function AtendimentoClient({ papel }: { papel: "admin" | "corretor" }) {
               type="button"
               onClick={() => void enviar()}
               disabled={!tel || modo !== "humano" || enviando || !texto.trim()}
-              className="rounded-lg bg-ink px-4 text-sm text-white disabled:opacity-40"
+              className="h-11 w-11 shrink-0 rounded-full bg-accent text-sm text-white disabled:opacity-40"
             >
-              {enviando ? "Enviando…" : "Enviar"}
+              {enviando ? "…" : "➤"}
             </button>
           </div>
         </footer>
       </section>
 
-      <aside className="min-h-0 overflow-y-auto border-t border-line p-3 lg:border-l lg:border-t-0">
+      {crmOpen ? (
+        <button
+          type="button"
+          className="fixed inset-0 z-30 bg-ink/30 lg:hidden"
+          aria-label="Fechar lead"
+          onClick={() => setCrmOpen(false)}
+        />
+      ) : null}
+
+      <aside
+        className={`z-40 min-h-0 overflow-y-auto border-line bg-card p-3 lg:static lg:block lg:border-l ${
+          crmOpen
+            ? "fixed inset-x-0 bottom-0 max-h-[80dvh] rounded-t-2xl border-t shadow-lg lg:max-h-none lg:rounded-none lg:shadow-none"
+            : "hidden lg:block"
+        }`}
+      >
+        <div className="mb-3 flex items-center justify-between lg:hidden">
+          <h2 className="text-sm font-medium">Lead</h2>
+          <button type="button" className="text-sm text-accent" onClick={() => setCrmOpen(false)}>
+            Fechar
+          </button>
+        </div>
         {isAdmin ? (
           <>
             <h2 className="text-sm font-medium">Transferir</h2>

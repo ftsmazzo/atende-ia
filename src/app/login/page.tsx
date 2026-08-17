@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { InstallApp } from "@/components/InstallApp";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -44,7 +45,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen grid place-items-center px-4">
+    <main className="grid min-h-dvh place-items-center px-4 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       <form onSubmit={onSubmit} className="w-full max-w-sm rounded-2xl border border-line bg-card p-8">
         <p className="text-xs uppercase tracking-[0.2em] text-muted">{brand}</p>
         <h1 className="mt-2 text-2xl font-semibold">{appName}</h1>
@@ -76,6 +77,9 @@ export default function LoginPage() {
         >
           {loading ? "Entrando..." : "Entrar"}
         </button>
+        <div className="mt-4">
+          <InstallApp variant="banner" />
+        </div>
       </form>
     </main>
   );
